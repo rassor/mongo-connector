@@ -47,7 +47,8 @@ class DocManager(DocManagerBase):
                  unique_key='_id', chunk_size=DEFAULT_MAX_BULK, **kwargs):
         self.elastic = Elasticsearch(hosts=[url])
         self.auto_commit_interval = auto_commit_interval
-        self.doc_type = 'string'  # default type is string, change if needed
+        self.doc_type = 'listing'  # default type is string, change if needed
+        self.index_name = 'listings'
         self.unique_key = unique_key
         self.chunk_size = chunk_size
         if self.auto_commit_interval not in [None, 0]:
@@ -63,7 +64,7 @@ class DocManager(DocManagerBase):
         """Apply updates given in update_spec to the document whose id
         matches that of doc.
         """
-        document = self.elastic.get(index=doc['ns'],
+        document = self.elastic.get(index=self.index_name,
                                     id=str(doc['_id']))
         updated = self.apply_update(document['_source'], update_spec)
         # _id is immutable in MongoDB, so won't have changed in update
@@ -75,7 +76,7 @@ class DocManager(DocManagerBase):
     def upsert(self, doc):
         """Insert a document into Elasticsearch."""
         doc_type = self.doc_type
-        index = doc['ns']
+        index = self.index_name
         # No need to duplicate '_id' in source document
         doc_id = str(doc.pop("_id"))
         self.elastic.index(index=index, doc_type=doc_type,
@@ -90,7 +91,7 @@ class DocManager(DocManagerBase):
         def docs_to_upsert():
             doc = None
             for doc in docs:
-                index = doc["ns"]
+                index = self.index_name
                 doc_id = str(doc.pop("_id"))
                 yield {
                     "_index": index,
@@ -126,7 +127,7 @@ class DocManager(DocManagerBase):
     @wrap_exceptions
     def remove(self, doc):
         """Remove a document from Elasticsearch."""
-        self.elastic.delete(index=doc['ns'], doc_type=self.doc_type,
+        self.elastic.delete(index=self.index_name, doc_type=self.doc_type,
                             id=str(doc["_id"]),
                             refresh=(self.auto_commit_interval == 0))
 
